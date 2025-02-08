@@ -49,6 +49,8 @@ func main() {
 	// Set up routes
 	http.HandleFunc("/", loginPage)
 	http.HandleFunc("/login", loginHandler)
+	http.HandleFunc("/register", registerPage)      // Route for registration form
+	http.HandleFunc("/register-user", registerHandler) // Route to handle the registration form submission
 
 	// Start the web server
 	fmt.Println("Server started at :9000")
@@ -69,6 +71,7 @@ func loginPage(w http.ResponseWriter, r *http.Request) {
 				<input type="password" id="password" name="password" required><br><br>
 				<button type="submit">Login</button>
 			</form>
+			<p>Don't have an account? <a href="/register">Register here</a></p>
 		</body>
 		</html>
 	`))
@@ -121,6 +124,60 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			Username:     username,
 			VisitedCount: visitedCount,
 		})
+	} else {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+	}
+}
+
+// registerPage serves the registration form
+func registerPage(w http.ResponseWriter, r *http.Request) {
+	// Serve registration form
+	tmpl := template.Must(template.New("register").Parse(`
+		<html>
+		<body>
+			<h2>Register</h2>
+			<form method="post" action="/register-user">
+				<label for="username">Username: </label>
+				<input type="text" id="username" name="username" required><br><br>
+				<label for="password">Password: </label>
+				<input type="password" id="password" name="password" required><br><br>
+				<button type="submit">Register</button>
+			</form>
+		</body>
+		</html>
+	`))
+
+	tmpl.Execute(w, nil)
+}
+
+// registerHandler handles the registration form submission
+func registerHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		username := r.FormValue("username")
+		password := r.FormValue("password")
+
+		// Check if the username already exists
+		var count int
+		err := db.QueryRow("SELECT COUNT(*) FROM users WHERE username = ?", username).Scan(&count)
+		if err != nil {
+			http.Error(w, "Internal server error", http.StatusInternalServerError)
+			return
+		}
+
+		if count > 0 {
+			http.Error(w, "Username already exists", http.StatusConflict)
+			return
+		}
+
+		// Insert the new user into the database
+		_, err = db.Exec("INSERT INTO users (username, password) VALUES (?, ?)", username, password)
+		if err != nil {
+			http.Error(w, "Error creating account", http.StatusInternalServerError)
+			return
+		}
+
+		// Redirect to login page after successful registration
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 	} else {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 	}
