@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
 )
@@ -70,25 +71,28 @@ func main() {
 	log.Fatal(http.ListenAndServe(":9000", nil))
 }
 
+// loadTemplate function to load HTML templates from the "templates" folder
+func loadTemplate(name string) (*template.Template, error) {
+	templatePath := filepath.Join("templates", name)
+	log.Println("Attempting to load template:", templatePath)
+
+	tmpl, err := template.ParseFiles(templatePath)
+	if err != nil {
+		log.Println("Error loading template:", err)
+		return nil, err
+	}
+
+	return tmpl, nil
+}
+
 // loginPage serves the login form
 func loginPage(w http.ResponseWriter, r *http.Request) {
 	// Serve login form
-	tmpl := template.Must(template.New("login").Parse(`
-		<html>
-		<body>
-			<h2>Login</h2>
-			<form method="post" action="/login">
-				<label for="username">Username: </label>
-				<input type="text" id="username" name="username" required><br><br>
-				<label for="password">Password: </label>
-				<input type="password" id="password" name="password" required><br><br>
-				<button type="submit">Login</button>
-			</form>
-			<p>Don't have an account? <a href="/register">Register here</a></p>
-		</body>
-		</html>
-	`))
-
+	tmpl, err := loadTemplate("login.html")
+	if err != nil {
+		http.Error(w, "Could not load template", http.StatusInternalServerError)
+		return
+	}
 	tmpl.Execute(w, nil)
 }
 
@@ -131,7 +135,6 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		defer rows.Close()
 
 		var messages []Message
-
 		for rows.Next() {
 			var msg Message
 			err := rows.Scan(&msg.Username, &msg.Message, &msg.CreatedAt)
@@ -143,28 +146,12 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Serve the welcome page with the chat messages
-		tmpl := template.Must(template.New("welcome").Parse(`
-			<html>
-			<body>
-				<h2>Welcome {{.Username}}!</h2>
-				<p>You have visited this page {{.VisitedCount}} times.</p>
+		tmpl, err := loadTemplate("welcome.html")
+		if err != nil {
+			http.Error(w, "Could not load template", http.StatusInternalServerError)
+			return
+		}
 
-				<h3>Public Chat</h3>
-				<div>
-					{{range .Messages}}
-						<p><strong>{{.Username}}:</strong> {{.Message}} <em>({{.CreatedAt}})</em></p>
-					{{end}}
-				</div>
-
-				<form method="post" action="/send-message">
-					<textarea name="message" required></textarea><br>
-					<button type="submit">Send</button>
-				</form>
-			</body>
-			</html>
-		`))
-
-		// Passing the updated user data and messages to template
 		tmpl.Execute(w, struct {
 			Username     string
 			VisitedCount int
@@ -182,21 +169,11 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 // registerPage serves the registration form
 func registerPage(w http.ResponseWriter, r *http.Request) {
 	// Serve registration form
-	tmpl := template.Must(template.New("register").Parse(`
-		<html>
-		<body>
-			<h2>Register</h2>
-			<form method="post" action="/register-user">
-				<label for="username">Username: </label>
-				<input type="text" id="username" name="username" required><br><br>
-				<label for="password">Password: </label>
-				<input type="password" id="password" name="password" required><br><br>
-				<button type="submit">Register</button>
-			</form>
-		</body>
-		</html>
-	`))
-
+	tmpl, err := loadTemplate("register.html")
+	if err != nil {
+		http.Error(w, "Could not load template", http.StatusInternalServerError)
+		return
+	}
 	tmpl.Execute(w, nil)
 }
 
@@ -246,7 +223,7 @@ func sendMessageHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Redirect to the same page (login page) after sending the message to display it immediately
+		// Redirect to the same page after sending the message to display it immediately
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 	} else {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)

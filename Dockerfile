@@ -1,4 +1,4 @@
-# Step 1: Use official Go 1.23 image
+# Step 1: Use official Go 1.23 image as the builder
 FROM golang:1.23-alpine AS builder
 
 # Install dependencies for cgo (SQLite, C compiler)
@@ -38,7 +38,10 @@ WORKDIR /root/
 # Copy the Go binary from the builder stage
 COPY --from=builder /app/main .
 
-# Expose port 9000
+# Copy the templates directory to the container
+COPY --from=builder /app/templates /root/templates
+
+# Expose port 9000 for the Go server
 EXPOSE 9000
 
 # Command to run the Go binary

@@ -1,0 +1,18 @@
+<html>
+<body>
+    <h2>Welcome {{.Username}}!</h2>
+    <p>You have visited this page {{.VisitedCount}} times.</p>
+
+    <h3>Public Chat</h3>
+    <div>
+        {{range .Messages}}
+        <p><strong>{{.Username}}:</strong> {{.Message}} <em>({{.CreatedAt}})</em></p>
+        {{end}}
+    </div>
+
+    <form method="post" action="/send-message">
+        <textarea name="message" required></textarea><br>
+        <button type="submit">Send</button>
+    </form>
+</body>
+</html>
