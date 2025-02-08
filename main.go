@@ -19,6 +19,13 @@ type User struct {
 	VisitedCount int
 }
 
+// Message struct to display chat messages with timestamp
+type Message struct {
+	Username  string
+	Message   string
+	CreatedAt string
+}
+
 func main() {
 	// Open SQLite database or create it if it doesn't exist
 	var err error
@@ -27,12 +34,18 @@ func main() {
 		log.Fatal(err)
 	}
 
-	// Create the table if it doesn't exist
+	// Create the users and messages table if they don't exist
 	_, err = db.Exec(`
 		CREATE TABLE IF NOT EXISTS users (
 			username TEXT PRIMARY KEY,
 			password TEXT,
 			visited_count INTEGER DEFAULT 0
+		);
+		CREATE TABLE IF NOT EXISTS messages (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			username TEXT,
+			message TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		);
 	`)
 	if err != nil {
@@ -40,7 +53,6 @@ func main() {
 	}
 
 	// Add a sample user if the database is empty (for testing purposes)
-	// Only run this if there is no user already in the database.
 	_, err = db.Exec(`INSERT OR IGNORE INTO users (username, password) VALUES (?, ?)`, "testuser", "password123")
 	if err != nil {
 		log.Fatal(err)
@@ -49,8 +61,9 @@ func main() {
 	// Set up routes
 	http.HandleFunc("/", loginPage)
 	http.HandleFunc("/login", loginHandler)
-	http.HandleFunc("/register", registerPage)      // Route for registration form
-	http.HandleFunc("/register-user", registerHandler) // Route to handle the registration form submission
+	http.HandleFunc("/register", registerPage)
+	http.HandleFunc("/register-user", registerHandler)
+	http.HandleFunc("/send-message", sendMessageHandler)
 
 	// Start the web server
 	fmt.Println("Server started at :9000")
@@ -79,7 +92,7 @@ func loginPage(w http.ResponseWriter, r *http.Request) {
 	tmpl.Execute(w, nil)
 }
 
-// loginHandler handles the login and increments the visit counter
+// loginHandler handles the login and shows the public chat
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "POST" {
 		username := r.FormValue("username")
@@ -109,20 +122,57 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Show the welcome page with the counter
+		// Fetch all messages
+		rows, err := db.Query("SELECT username, message, created_at FROM messages ORDER BY created_at DESC")
+		if err != nil {
+			http.Error(w, "Error fetching messages", http.StatusInternalServerError)
+			return
+		}
+		defer rows.Close()
+
+		var messages []Message
+
+		for rows.Next() {
+			var msg Message
+			err := rows.Scan(&msg.Username, &msg.Message, &msg.CreatedAt)
+			if err != nil {
+				http.Error(w, "Error scanning messages", http.StatusInternalServerError)
+				return
+			}
+			messages = append(messages, msg)
+		}
+
+		// Serve the welcome page with the chat messages
 		tmpl := template.Must(template.New("welcome").Parse(`
 			<html>
 			<body>
 				<h2>Welcome {{.Username}}!</h2>
 				<p>You have visited this page {{.VisitedCount}} times.</p>
+
+				<h3>Public Chat</h3>
+				<div>
+					{{range .Messages}}
+						<p><strong>{{.Username}}:</strong> {{.Message}} <em>({{.CreatedAt}})</em></p>
+					{{end}}
+				</div>
+
+				<form method="post" action="/send-message">
+					<textarea name="message" required></textarea><br>
+					<button type="submit">Send</button>
+				</form>
 			</body>
 			</html>
 		`))
 
-		// Passing the updated user data to template
-		tmpl.Execute(w, User{
+		// Passing the updated user data and messages to template
+		tmpl.Execute(w, struct {
+			Username     string
+			VisitedCount int
+			Messages     []Message
+		}{
 			Username:     username,
 			VisitedCount: visitedCount,
+			Messages:     messages,
 		})
 	} else {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
@@ -178,6 +228,26 @@ func registerHandler(w http.ResponseWriter, r *http.Request) {
 
 		// Redirect to login page after successful registration
 		http.Redirect(w, r, "/", http.StatusSeeOther)
+	} else {
+		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
+	}
+}
+
+// sendMessageHandler handles the posting of new messages
+func sendMessageHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "POST" {
+		username := r.FormValue("username") // We assume the user is logged in
+		message := r.FormValue("message")
+
+		// Insert the new message into the database
+		_, err := db.Exec("INSERT INTO messages (username, message) VALUES (?, ?)", username, message)
+		if err != nil {
+			http.Error(w, "Error sending message", http.StatusInternalServerError)
+			return
+		}
+
+		// Redirect to the same page (login page) after sending the message to display it immediately
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
 	} else {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 	}
