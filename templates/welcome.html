@@ -1,18 +1,122 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f7fc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            flex-direction: column;
+            text-align: center;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 600px;
+            box-sizing: border-box;
+        }
+        h2 {
+            color: #4CAF50;
+            font-size: 28px;
+        }
+        h3 {
+            color: #333;
+            font-size: 24px;
+        }
+        p {
+            font-size: 16px;
+            color: #555;
+        }
+        .messages {
+            margin: 20px 0;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border-radius: 8px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .messages p {
+            background-color: #e8f7e7;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 8px;
+        }
+        .messages p strong {
+            color: #4CAF50;
+        }
+        textarea {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            resize: vertical;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        /* Responsive design */
+        @media (max-width: 600px) {
+            .container {
+                width: 90%;
+                padding: 20px;
+            }
+            h2 {
+                font-size: 24px;
+            }
+            h3 {
+                font-size: 20px;
+            }
+            p {
+                font-size: 14px;
+            }
+            textarea {
+                font-size: 14px;
+            }
+            button {
+                font-size: 14px;
+            }
+        }
+    </style>
+</head>
 <body>
-    <h2>Welcome {{.Username}}!</h2>
-    <p>You have visited this page {{.VisitedCount}} times.</p>
+    <div class="container">
+        <h2>Welcome {{.Username}}!</h2>
+        <p>You have visited this page {{.VisitedCount}} times.</p>
 
-    <h3>Public Chat</h3>
-    <div>
-        {{range .Messages}}
-        <p><strong>{{.Username}}:</strong> {{.Message}} <em>({{.CreatedAt}})</em></p>
-        {{end}}
+        <h3>Public Chat</h3>
+        <div class="messages">
+            {{range .Messages}}
+            <p><strong>{{.Username}}:</strong> {{.Message}} <em>({{.CreatedAt}})</em></p>
+            {{end}}
+        </div>
+
+        <form method="post" action="/send-message">
+            <textarea name="message" required placeholder="Type your message here..."></textarea><br>
+            <button type="submit">Send</button>
+        </form>
     </div>
-
-    <form method="post" action="/send-message">
-        <textarea name="message" required></textarea><br>
-        <button type="submit">Send</button>
-    </form>
 </body>
 </html>
